@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<waveform_data>
+    <abp_waveform_features>
+        <reference_point name="sys_phase_onset" time_s="0.0" pressure_mmHg="65.00"/>
+        <reference_point name="sys_phase_onset_1" time_s="0.05" pressure_mmHg="68.00"/>
+        <reference_point name="sys_phase_onset_2" time_s="0.15" pressure_mmHg="115.00"/>
+        <reference_point name="sys_phase_peak" time_s="0.20" pressure_mmHg="120.00"/>
+        <reference_point name="sys_peak_decay_1" time_s="0.25" pressure_mmHg="115.00"/>
+        <reference_point name="sys_peak_decay_2" time_s="0.38" pressure_mmHg="80.00"/>
+        <reference_point name="dicrotic_notch" time_s="0.4" pressure_mmHg="70.00"/>
+        <reference_point name="diastolic_peak" time_s="0.45" pressure_mmHg="75.00"/>
+        <reference_point name="diastolic_peak_decay_1" time_s="0.60" pressure_mmHg="71.00"/>
+        <reference_point name="diastolic_peak_decay_2" time_s="0.80" pressure_mmHg="67.00"/>
+        <reference_point name="dia_phase_end" time_s="1.0" pressure_mmHg="65.00"/>
+    </abp_waveform_features>
+    <cvp_waveform_features>
+        <reference_point name="sys_phase_onset" time_s="0.0" pressure_mmHg="65.00"/>
+        <reference_point name="sys_phase_onset_1" time_s="0.05" pressure_mmHg="68.00"/>
+        <reference_point name="sys_phase_onset_2" time_s="0.15" pressure_mmHg="115.00"/>
+        <reference_point name="sys_phase_peak" time_s="0.20" pressure_mmHg="120.00"/>
+        <reference_point name="sys_peak_decay_1" time_s="0.25" pressure_mmHg="115.00"/>
+        <reference_point name="sys_peak_decay_2" time_s="0.38" pressure_mmHg="80.00"/>
+        <reference_point name="dicrotic_notch" time_s="0.4" pressure_mmHg="70.00"/>
+        <reference_point name="diastolic_peak" time_s="0.45" pressure_mmHg="75.00"/>
+        <reference_point name="diastolic_peak_decay_1" time_s="0.60" pressure_mmHg="71.00"/>
+        <reference_point name="diastolic_peak_decay_2" time_s="0.80" pressure_mmHg="67.00"/>
+        <reference_point name="dia_phase_end" time_s="1.0" pressure_mmHg="65.00"/>
+    </cvp_waveform_features>
+</waveform_data>
