@@ -123,7 +123,6 @@ class MainWindow(QMainWindow):
         pass
 
     def on_item_selected(self, current: QModelIndex, previous: QModelIndex):
-        index = current.row()
         selected_model = self.left_panel_view.get_selected_model()
         if selected_model:
             view_id = selected_model.view_id
