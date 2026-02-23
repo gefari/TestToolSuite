@@ -1,2 +1,3 @@
-from .heart_beat_view_model import HeartBeatViewModel
-from .item_list_view_model import ItemListViewModel
+from .heart_beat_viewmodel import HeartBeatViewModel
+from .item_list_viewmodel import ItemListViewModel
+from .ni_6216_viewmodel import NI6216ViewModel

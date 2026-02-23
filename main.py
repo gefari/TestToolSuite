@@ -1,15 +1,16 @@
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import QModelIndex
+from PySide6.QtCore import QModelIndex, QTimer, QDateTime
 
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMessageBox,
+    QStackedWidget,
+    QStatusBar,
     QToolBar,
-    QWidget,
-    QStackedWidget
-    
+    QWidget
 )
 
 import sys
@@ -19,8 +20,15 @@ import viewmodel
 
 import qtawesome as qta
 
+from model.ni6216daqmx_model import Ni6216DaqMx
+
 SW_VERSION = "0.0.1"
 ABOUT_MSG = f"Testing ToolSuite\n\nVersion {SW_VERSION}\n\nCopyright 2026 Farina Germano\n\nAll rights reserved."
+
+from enum import StrEnum
+class ViewID(StrEnum):
+    HEARTBEAT = "HeartBeat"
+    NI_6216 = "NI_6216_DAQMx"
 
 class MainWindow(QMainWindow):
     def __init__(self, theme, settings):
@@ -37,19 +45,16 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
         self.view_lookup = {}
 
-        self.initialize_views()
-
         # Central Widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
         # Main layout
-        main_layout = QHBoxLayout(self)
-
+        main_layout = QHBoxLayout(central_widget)
         # List Model
         self.items = [
-            model.ItemModel("Heart Beat", "fa5s.sliders-h", "HeartBeat"),
-            model.ItemModel("NI DAQMx", "fa5s.sliders-h", "NI_6216_DAQMx")
+            model.ItemModel("Heart Beat", "fa5s.sliders-h",  ViewID.HEARTBEAT),
+            model.ItemModel("NI DAQMx", "fa5s.sliders-h", ViewID.NI_6216)
         ]
 
         # Create the ViewModel
@@ -61,7 +66,7 @@ class MainWindow(QMainWindow):
         # Left Panel: List View
         main_layout.addWidget(self.left_panel_view)
 
-        self.initialize_views()
+        #self.initialize_views()
         main_layout.addWidget(self.stacked_widget)
         central_widget.setLayout(main_layout)
 
@@ -92,23 +97,44 @@ class MainWindow(QMainWindow):
         # Connect selection change signal to the view model
         self.left_panel_view.selectionModel().currentChanged.connect(self.on_item_selected)
 
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+
+        self.heart_beat_model = model.HeartBeatModel()
+        self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model)
+
+        self.initialize_views()
+
+
+        # Clock label in status bar
+        self.clock_label = QLabel()
+        self.status_bar.addPermanentWidget(self.clock_label)
+
+        # Timer for 1s refresh
+        self.clock_timer = QTimer(self)
+        self.clock_timer.timeout.connect(self._update_clock)
+        self.clock_timer.start(1000)
+        self._update_clock()  # immediate first update, avoids 1s blank delay
+
     def initialize_views(self):
         # HEART BEAT VIEW
-        self.heart_beat_model = model.HeartBeatModel()
         heart_beat_viewmodel = viewmodel.HeartBeatViewModel(self.heart_beat_model)
         heart_beat_view = view.HeartBeatView(heart_beat_viewmodel) 
-        self.view_lookup["HeartBeat"] = heart_beat_view
+        self.view_lookup[ViewID.HEARTBEAT] = heart_beat_view
         self.stacked_widget.addWidget(heart_beat_view)
         # NI VIEW
-        ni_6216_view = view.NI6216View() 
-        self.view_lookup["NI_6216_DAQMx"] = ni_6216_view
+        ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
+        ni_6216_viewmodel.status_message.connect(self.status_bar.showMessage)
+        ni_6216_view = view.NI6216View(ni_6216_viewmodel)
+        self.view_lookup[ViewID.NI_6216] = ni_6216_view
         self.stacked_widget.addWidget(ni_6216_view)
 
     def on_about_to_quit(self):
         #self.drive_model.stop()
         # Disconnect USB-CAN Peak
         # Disconnect USB NI DAQ
-        pass
+        self.ni_daq_mx_model.stop()
 
     # HELP MENU ACTIONS
     def show_about_dialog(self):
@@ -129,7 +155,11 @@ class MainWindow(QMainWindow):
             view_ref = self.view_lookup[view_id]
             if view_ref:
                 self.stacked_widget.setCurrentWidget(view_ref)
-            #self.status_bar.showMessage(f"Selected {selected_model.name}")
+            self.status_bar.showMessage(f"Selected {selected_model.name}")
+
+    def _update_clock(self):
+        now = QDateTime.currentDateTime()
+        self.clock_label.setText(now.toString("dd/MM/yyyy   hh:mm:ss"))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

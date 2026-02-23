@@ -100,7 +100,3 @@ class HeartBeatModel(QObject):
             v['pressure_mmHg'] for v in self._waveform_reference_points['abp_waveform_features'].values()
         ]
         self.generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
-
-
-
-        
