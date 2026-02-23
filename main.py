@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
             view_ref = self.view_lookup[view_id]
             if view_ref:
                 self.stacked_widget.setCurrentWidget(view_ref)
-            self.status_bar.showMessage(f"Selected {selected_model.name}")
+            #self.status_bar.showMessage(f"Selected {selected_model.name}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
