@@ -29,11 +29,3 @@ class ListModel(QAbstractListModel):
             return self._items[index]
         return None
 
-    def set_icon_color(self, row: int, color: str | None):
-        """Set (or clear) the icon color override for a given row and repaint it."""
-        if color is None:
-            self._icon_colors.pop(row, None)
-        else:
-            self._icon_colors[row] = color
-        idx = self.index(row)
-        self.dataChanged.emit(idx, idx, [Qt.DecorationRole])
