@@ -1,4 +1,4 @@
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtGui import QAction
 from PySide6.QtCore import QModelIndex, QTimer, QDateTime
 
 from PySide6.QtWidgets import (
@@ -21,11 +21,11 @@ import viewmodel
 import qtawesome as qta
 
 from model.ni6216daqmx_model import Ni6216DaqMx
+from enum import StrEnum
 
 SW_VERSION = "0.0.1"
 ABOUT_MSG = f"Testing ToolSuite\n\nVersion {SW_VERSION}\n\nCopyright 2026 Farina Germano\n\nAll rights reserved."
 
-from enum import StrEnum
 class ViewID(StrEnum):
     HEARTBEAT = "HeartBeat"
     NI_6216 = "NI_6216_DAQMx"
@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(ni_6216_view)
 
     def on_about_to_quit(self):
-        #self.drive_model.stop()
+
         # Disconnect USB-CAN Peak
         # Disconnect USB NI DAQ
         self.ni_daq_mx_model.stop()
@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
         selected_model = self.left_panel_view.get_selected_model()
         if selected_model:
             view_id = selected_model.view_id
-            view_ref = self.view_lookup[view_id]
+            view_ref = self.view_lookup.get(view_id)
             if view_ref:
                 self.stacked_widget.setCurrentWidget(view_ref)
             self.status_bar.showMessage(f"Selected {selected_model.name}")

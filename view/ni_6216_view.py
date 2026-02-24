@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QToolBar, QToolButton, QToolButton, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout
 from viewmodel.ni_6216_viewmodel import NI6216ViewModel
 
 import qtawesome as qta
@@ -7,6 +7,8 @@ class NI6216View(QWidget):
 
     def __init__(self, viewmodel: NI6216ViewModel, parent=None):
         super().__init__(parent)
+        self._viewmodel = viewmodel
+
         main_layout = QVBoxLayout()
 
         # --- Connection status row ---
@@ -27,7 +29,7 @@ class NI6216View(QWidget):
 
         main_layout.addStretch()
         self.setLayout(main_layout)
-        self._viewmodel = viewmodel
+
 
         # Connect ViewModel signals
         self._viewmodel.connection_changed.connect(self._on_connection_changed)

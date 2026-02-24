@@ -250,7 +250,7 @@ class HeartBeatView(QWidget):
             elif row == 1:
                 # User edited Pressure (mmHg)
                 new_pressure = max(0.0, min(300.0, float(self.ref_table.item(row, col).text())))
-                self._viewmodel.update_reference_point(key, float(ref_times[col]) / n_samples, new_pressure)
+                self._viewmodel.update_reference_point(key, float(ref_times[col]) / (n_samples - 1), new_pressure)
 
         except (ValueError, TypeError):
             self._update_ref_table(keys, ref_times, ref_pressures)

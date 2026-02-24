@@ -1,5 +1,5 @@
 from .heart_beat_manager import HeartBeatManager
-from PySide6.QtCore import QObject, Property, Signal
+from PySide6.QtCore import QObject, Signal
 from scipy.interpolate import PchipInterpolator
 import numpy as np
 
@@ -65,7 +65,7 @@ class HeartBeatModel(QObject):
         # Point Interpolation
         interpolated_points = PchipInterpolator(intermediate_time_points, intermediate_pressure_points)
 
-        t, _step = np.linspace(start=0, 
+        t = np.linspace(start=0,
                               stop=num_of_samples_per_heart_beat - 1,
                               num=num_of_samples_per_heart_beat, 
                               retstep=True, 
