@@ -17,11 +17,12 @@ import sys
 import model
 import view
 import viewmodel
+from enum import StrEnum
 
 import qtawesome as qta
-
+from logger_config import configure_logging
 from model.ni6216daqmx_model import Ni6216DaqMx
-from enum import StrEnum
+
 
 SW_VERSION = "0.0.1"
 ABOUT_MSG = f"Testing ToolSuite\n\nVersion {SW_VERSION}\n\nCopyright 2026 Farina Germano\n\nAll rights reserved."
@@ -161,6 +162,7 @@ class MainWindow(QMainWindow):
         self.clock_label.setText(now.toString("dd/MM/yyyy   hh:mm:ss"))
 
 if __name__ == "__main__":
+    configure_logging()
     app = QApplication(sys.argv)
 
     app.setStyle("Fusion")

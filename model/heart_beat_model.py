@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from .heart_beat_manager import HeartBeatManager
 from PySide6.QtCore import QObject, Signal
 from scipy.interpolate import PchipInterpolator
@@ -21,9 +24,6 @@ class HeartBeatModel(QObject):
         
         self._abp_waveform_time_points = []
         self._abp_waveform_pressure_points = []
-
-        print(f"ABP Waveform time reference points: {self._abp_reference_percentage_time_points}")
-        print(f"ABP Waveform pressure reference points: {self._abp_reference_pressure_points}")
 
         self.generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
 
@@ -51,16 +51,13 @@ class HeartBeatModel(QObject):
             else:
                 self._abp_reference_time_points.append(int((time_point * num_of_samples_per_heart_beat) - 1))
         
-        print(f"ABP reference waveform time points [samples]: {self._abp_reference_time_points}")
-        print(f"ABP reference waveform pressure points [mmHg]: {self._abp_reference_pressure_points}")
+        logger.debug(f"Generating ABP waveform with reference time points [samples]: {self._abp_reference_time_points}")
+        logger.debug(f"Generating ABP waveform with reference pressure points [mmHg]: {self._abp_reference_pressure_points}")
                 
         # Sort time and corresponding pressure points together
         zip_points = zip(self._abp_reference_time_points, self._abp_reference_pressure_points)
         sorted_points = sorted(zip_points)
         intermediate_time_points, intermediate_pressure_points = zip(*sorted_points)
-        
-        print(f"ABP intermediate waveform time points [samples]: {intermediate_time_points}")
-        print(f"ABP intermediate waveform pressure points [mmHg]: {intermediate_pressure_points}")
 
         # Point Interpolation
         interpolated_points = PchipInterpolator(intermediate_time_points, intermediate_pressure_points)
@@ -68,15 +65,11 @@ class HeartBeatModel(QObject):
         t = np.linspace(start=0,
                               stop=num_of_samples_per_heart_beat - 1,
                               num=num_of_samples_per_heart_beat, 
-                              retstep=True, 
+                              retstep=False,
                               endpoint=True)
 
         self._abp_waveform_time_points = t
         self._abp_waveform_pressure_points = interpolated_points(t)
-
-        print(f"ABP waveform time points [samples]: {self._abp_waveform_time_points}")
-        print(f"ABP waveform pressure points [mmHg]: {self._abp_waveform_pressure_points}")
-
         self.waveform_data_changed.emit()
     
     def update_reference_point(self, key, new_time_pct, new_pressure):

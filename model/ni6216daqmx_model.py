@@ -1,7 +1,11 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import threading
 import usb.core
 import nidaqmx
 import numpy as np
+
 from nidaqmx.constants import AcquisitionType, RegenerationMode
 
 from PySide6.QtCore import QObject, Signal
@@ -71,8 +75,10 @@ class Ni6216DaqMx(QObject):
                     self._set_connected(False)
                     self.status_message.emit("NI-6216: device not found.")
             except Exception as e:
+                error_msg = f"USB error: {e}"
                 self._set_connected(False)
-                self.status_message.emit(f"USB error: {e}")
+                self.status_message.emit(error_msg)
+                logger.warning(error_msg)
             self._stop_event.wait(self.ACTIVE_SEARCH_SLEEP_S)
 
     def start_generation(self):
@@ -80,7 +86,9 @@ class Ni6216DaqMx(QObject):
             if self._task is not None or not self._is_connected:
                 return
             if self._ao0_waveform is None:
-                self.status_message.emit("NI-6216: no waveform data available.")
+                msg = "NI-6216: analog output ch0, no waveform data available."
+                self.status_message.emit(msg)
+                logger.warning(msg)
                 return
 
             self._task = nidaqmx.Task()
@@ -108,12 +116,16 @@ class Ni6216DaqMx(QObject):
 
                 self._task.start()
                 self.generation_state_changed.emit(True)
-                self.status_message.emit("NI-6216: waveform generation started.")
+                msg = "NI-6216: waveform generation started."
+                logger.debug(msg)
+                self.status_message.emit(msg)
 
             except Exception as e:
+                error_msg = f"NI-6216 generation error: {e}"
                 self._task.close()
                 self._task = None
-                self.status_message.emit(f"NI-6216 generation error: {e}")
+                logger.warning(error_msg)
+                self.status_message.emit(error_msg)
 
     def stop_generation(self):
         with self._task_lock:
@@ -123,11 +135,15 @@ class Ni6216DaqMx(QObject):
                 self._task.stop()
                 self._task.close()
             except Exception as e:
-                self.status_message.emit(f"NI-6216 stop error: {e}")
+                error_msg = f"NI-6216 stop error: {e}"
+                logger.warning(error_msg)
+                self.status_message.emit(error_msg)
             finally:
+                msg = "NI-6216: waveform generation stopped."
                 self._task = None
                 self.generation_state_changed.emit(False)
-                self.status_message.emit("NI-6216: waveform generation stopped.")
+                logger.debug(msg)
+                self.status_message.emit(msg)
 
     def stop(self):
         self.stop_generation()
