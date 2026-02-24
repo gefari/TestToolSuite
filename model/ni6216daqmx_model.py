@@ -30,13 +30,6 @@ class Ni6216DaqMx(QObject):
         #self.SINGLE_ENDED_TEST_VOLTAGE = 1.0
 
         self.SAMPLES_PER_SECOND = 1000
-        #self.WAVEFORM_DURATION_S = 1
-        #self.SAMPLES_PER_CHANNEL = int((self.WAVEFORM_DURATION_S * 1000) / ((1 / self.SAMPLES_PER_SECOND) * 1000))
-        # analog output channel 1
-        #self.ao1_ref_voltage = np.full(self.SAMPLES_PER_SECOND, self.SINGLE_ENDED_REF_VOLTAGE).tolist()
-        # analog output channel 0
-        # Continuous sine wave at 1 kHz, 1 V amplitude, 1000 samples/s
-        #self.ao0_waveform_voltage = np.sin(2 * np.pi * np.linspace(start=0, stop=1, num=1000)).tolist()
 
         # Build initial waveform from HeartBeatModel
         self._ao0_waveform = None
@@ -107,15 +100,17 @@ class Ni6216DaqMx(QObject):
                     samps_per_chan=samples_per_channel
                 )
                 self._task.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
-                self._task.out_stream.output_buf_size = samples_per_channel * 2
 
                 waveforms = np.ascontiguousarray(
                     np.vstack((self._ao0_waveform, self._ao1_ref))
                 )
+
                 AnalogMultiChannelWriter(self._task.out_stream).write_many_sample(waveforms)
+
                 self._task.start()
                 self.generation_state_changed.emit(True)
                 self.status_message.emit("NI-6216: waveform generation started.")
+
             except Exception as e:
                 self._task.close()
                 self._task = None

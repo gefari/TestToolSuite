@@ -66,7 +66,6 @@ class MainWindow(QMainWindow):
         # Left Panel: List View
         main_layout.addWidget(self.left_panel_view)
 
-        #self.initialize_views()
         main_layout.addWidget(self.stacked_widget)
         central_widget.setLayout(main_layout)
 
