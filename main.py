@@ -101,6 +101,7 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
+        # Create models
         self.heart_beat_model = model.HeartBeatModel()
         self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model)
 

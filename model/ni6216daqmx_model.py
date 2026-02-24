@@ -162,12 +162,15 @@ class Ni6216DaqMx(QObject):
         self._ao1_ref = np.full(len(self._ao0_waveform), self.SINGLE_ENDED_REF_VOLTAGE)
 
     def _on_waveform_changed(self):
-        """Called from main thread via Qt signal. Calls stop then start — lock acquired separately in each."""
-        was_generating = self.is_generating
-        if was_generating:
-            self.stop_generation() # releases lock before returning
-        self._sync_waveform()
-        self.status_message.emit("NI-6216: waveform updated from HeartBeat model.")
+        with self._task_lock:
+            if self._task is None:
+                return
+            """Called from main thread via Qt signal. Calls stop then start — lock acquired separately in each."""
+            was_generating = self.is_generating
+            if was_generating:
+                self.stop_generation() # releases lock before returning
+            self._sync_waveform()
+            self.status_message.emit("NI-6216: waveform updated from HeartBeat model.")
 
-        if was_generating:
-            self.start_generation()  # re-acquires lock
+            if was_generating:
+                self.start_generation()  # re-acquires lock

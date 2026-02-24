@@ -60,7 +60,6 @@ class NI6216View(QWidget):
                 self._gen_button.blockSignals(True)  # prevent re-triggering toggled
                 self._gen_button.setChecked(False)
                 self._gen_button.blockSignals(False)
-                self._viewmodel.stop_generation()
 
         self._gen_button.setEnabled(connected)
 
