@@ -6,25 +6,25 @@ class NI6216ViewModel(QObject):
     generation_state_changed = Signal(bool)
     status_message = Signal(str)
 
-    def __init__(self, usb_searcher: Ni6216DaqMx, parent=None):
+    def __init__(self, daq_model: Ni6216DaqMx, parent=None):
         super().__init__(parent)
-        self._usb_searcher = usb_searcher
+        self._daq_model = daq_model
 
-        self._usb_searcher.connection_changed.connect(self.connection_changed)
-        self._usb_searcher.generation_state_changed.connect(self.generation_state_changed)
-        self._usb_searcher.status_message.connect(self.status_message)
+        self._daq_model.connection_changed.connect(self.connection_changed)
+        self._daq_model.generation_state_changed.connect(self.generation_state_changed)
+        self._daq_model.status_message.connect(self.status_message)
 
     @property
     def is_connected(self) -> bool:
-        return self._usb_searcher.is_connected
+        return self._daq_model.is_connected
 
     @property
     def is_generating(self) -> bool:
-        return self._usb_searcher.is_generating
+        return self._daq_model.is_generating
 
     def start_generation(self):
-        self._usb_searcher.start_generation()   # pure delegation
+        self._daq_model.start_generation()   # pure delegation
 
     def stop_generation(self):
-        self._usb_searcher.stop_generation()    # pure delegation
+        self._daq_model.stop_generation()    # pure delegation
 

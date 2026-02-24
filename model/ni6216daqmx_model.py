@@ -27,7 +27,6 @@ class Ni6216DaqMx(QObject):
 
         self.ACTIVE_SEARCH_SLEEP_S = 1
         self.SINGLE_ENDED_REF_VOLTAGE = 0.0
-        #self.SINGLE_ENDED_TEST_VOLTAGE = 1.0
 
         self.SAMPLES_PER_SECOND = 1000
 
@@ -117,17 +116,18 @@ class Ni6216DaqMx(QObject):
                 self.status_message.emit(f"NI-6216 generation error: {e}")
 
     def stop_generation(self):
-        if self._task is None:
-            return
-        try:
-            self._task.stop()
-            self._task.close()
-        except Exception as e:
-            self.status_message.emit(f"NI-6216 stop error: {e}")
-        finally:
-            self._task = None
-            self.generation_state_changed.emit(False)
-            self.status_message.emit("NI-6216: waveform generation stopped.")
+        with self._task_lock:
+            if self._task is None:
+                return
+            try:
+                self._task.stop()
+                self._task.close()
+            except Exception as e:
+                self.status_message.emit(f"NI-6216 stop error: {e}")
+            finally:
+                self._task = None
+                self.generation_state_changed.emit(False)
+                self.status_message.emit("NI-6216: waveform generation stopped.")
 
     def stop(self):
         self.stop_generation()
@@ -144,14 +144,14 @@ class Ni6216DaqMx(QObject):
 
         # ao1 stays as flat reference voltage
         self._ao1_ref = np.full(len(self._ao0_waveform), self.SINGLE_ENDED_REF_VOLTAGE)
+
     def _on_waveform_changed(self):
-        """Called when HeartBeatModel updates its waveform."""
+        """Called from main thread via Qt signal. Calls stop then start — lock acquired separately in each."""
         was_generating = self.is_generating
         if was_generating:
-            self.stop_generation()
-
+            self.stop_generation() # releases lock before returning
         self._sync_waveform()
         self.status_message.emit("NI-6216: waveform updated from HeartBeat model.")
 
         if was_generating:
-            self.start_generation()  # restart with new waveform
+            self.start_generation()  # re-acquires lock
