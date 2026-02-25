@@ -78,7 +78,7 @@ class HeartBeatModel(QObject):
         # Re-extract and regenerate
         self._abp_reference_percentage_time_points = [v['time_s'] for v in self._waveform_reference_points['abp_waveform_features'].values()]
         self._abp_reference_pressure_points = [v['pressure_mmHg'] for v in self._waveform_reference_points['abp_waveform_features'].values()]
-        self.generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
+        self._generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
     
     def get_reference_point_keys(self) -> list:
         return list(self._waveform_reference_points['abp_waveform_features'].keys())
@@ -92,4 +92,4 @@ class HeartBeatModel(QObject):
         self._abp_reference_pressure_points = [
             v['pressure_mmHg'] for v in self._waveform_reference_points['abp_waveform_features'].values()
         ]
-        self.generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
+        self._generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
