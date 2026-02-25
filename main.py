@@ -1,5 +1,5 @@
 from PySide6.QtGui import QAction
-from PySide6.QtCore import QModelIndex, QTimer, QDateTime
+from PySide6.QtCore import QModelIndex, QTimer, QDateTime, QSize
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -93,7 +93,19 @@ class MainWindow(QMainWindow):
         # TOOLBAR
         toolbar = QToolBar("Main Toolbar")
         toolbar.setMovable(False)  # Prevent the toolbar from being moved
+        toolbar.setIconSize(QSize(20, 20))
         self.addToolBar(toolbar)
+
+        # ── DAQMx Start / Stop action ─────────────────────────────────────────
+        self._daq_action = QAction(
+            qta.icon("fa5s.play", color="#00FF00"),
+            "Start DAQMx Generation",
+            self
+        )
+        self._daq_action.setCheckable(True)
+        self._daq_action.setEnabled(False)  # disabled until device connects
+        self._daq_action.triggered.connect(self._on_daq_action_triggered)
+        toolbar.addAction(self._daq_action)
 
         # Connect selection change signal to the view model
         self.left_panel_view.selectionModel().currentChanged.connect(self.on_item_selected)
@@ -102,9 +114,16 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
+        # Create ABP Waveform from file model
+        self.abp_waveform_from_file_model = model.AbpWaveformFileModel()
+
         # Create heart beat models
         self.heart_beat_model = model.HeartBeatModel()
-        self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model)
+
+        # Pass the two model to the NI DAQMx
+        self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model, abp_waveform_file_model=self.abp_waveform_from_file_model)
+
+        self.ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
 
         self.initialize_views()
 
@@ -120,15 +139,21 @@ class MainWindow(QMainWindow):
 
     def initialize_views(self):
         # HEART BEAT VIEW
-        heart_beat_viewmodel = viewmodel.HeartBeatWaveformPageViewModel(self.heart_beat_model)
-        heart_beat_view = view.HeartBeatView(heart_beat_viewmodel)
+        heart_beat_waveform_page_viewmodel = viewmodel.HeartBeatWaveformPageViewModel(self.heart_beat_model)
+        load_from_file_page_viewmodel = viewmodel.HeartBeatLoadWaveformFromFilePageViewModel(self.abp_waveform_from_file_model)
+        heart_beat_view = view.HeartBeatView(heart_beat_waveform_page_viewmodel, load_from_file_page_viewmodel)
         self.view_lookup[ViewID.HEARTBEAT] = heart_beat_view
         self.stacked_widget.addWidget(heart_beat_view)
 
         # NI VIEW
-        ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
-        ni_6216_viewmodel.status_message.connect(self.status_bar.showMessage)
-        ni_6216_view = view.NI6216View(ni_6216_viewmodel)
+        #ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
+        self.ni_6216_viewmodel.connection_changed.connect(self._on_daq_connection_changed)
+        self.ni_6216_viewmodel.generation_state_changed.connect(self._on_daq_generation_state_changed)
+
+        # Set initial toolbar state
+        self._on_daq_connection_changed(self.ni_6216_viewmodel.is_connected)
+        self.ni_6216_viewmodel.status_message.connect(self.status_bar.showMessage)
+        ni_6216_view = view.NI6216View(self.ni_6216_viewmodel)
         self.view_lookup[ViewID.NI_6216] = ni_6216_view
         self.stacked_widget.addWidget(ni_6216_view)
 
@@ -162,6 +187,42 @@ class MainWindow(QMainWindow):
     def _update_clock(self):
         now = QDateTime.currentDateTime()
         self.clock_label.setText(now.toString("dd/MM/yyyy   hh:mm:ss"))
+
+    def _on_daq_connection_changed(self, connected: bool):
+        """Enable/disable toolbar button when device plugs or unplugs."""
+        self._daq_action.setEnabled(connected)
+        if not connected:
+            # Device yanked mid-run — reset button to stopped state
+            self._daq_action.blockSignals(True)
+            self._daq_action.setChecked(False)
+            self._daq_action.blockSignals(False)
+            self._daq_action.setIcon(qta.icon("fa5s.play", color="#00FF00"))
+            self._daq_action.setText("Start DAQMx Generation")
+
+    def _on_daq_action_triggered(self, checked: bool):
+        """Start or stop waveform generation from the toolbar."""
+        if checked:
+            self.ni_6216_viewmodel.start_generation()
+            self._daq_action.setIcon(qta.icon("fa5s.stop", color="#FF4444"))
+            self._daq_action.setText("Stop DAQMx Generation")
+        else:
+            self.ni_6216_viewmodel.stop_generation()
+            self._daq_action.setIcon(qta.icon("fa5s.play", color="#00FF00"))
+            self._daq_action.setText("Start DAQMx Generation")
+
+    def _on_daq_generation_state_changed(self, running: bool):
+        """Keep toolbar icon in sync if state changes from the NI6216View button."""
+        self._daq_action.blockSignals(True)
+        self._daq_action.setChecked(running)
+        self._daq_action.blockSignals(False)
+        self._daq_action.setIcon(
+            qta.icon("fa5s.stop", color="#FF4444") if running
+            else qta.icon("fa5s.play", color="#00FF00")
+        )
+        self._daq_action.setText(
+            "Stop DAQMx Generation" if running else "Start DAQMx Generation"
+        )
+
 
 if __name__ == "__main__":
     configure_logging()

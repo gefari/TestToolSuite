@@ -12,6 +12,7 @@ from PySide6.QtCore import QObject, Signal
 from nidaqmx.stream_writers import AnalogMultiChannelWriter
 from model.transducer_model import mm_hg_to_volts
 from model.heart_beat_model import HeartBeatModel
+from model.abp_waveform_file_model import AbpWaveformFileModel
 
 NI_6216_VID = 0x3923
 NI_6216_PID = 0x733B
@@ -21,9 +22,11 @@ class Ni6216DaqMx(QObject):
     connection_changed = Signal(bool)
     generation_state_changed = Signal(bool)
 
-    def __init__(self, heart_beat_model: HeartBeatModel, parent=None):
+    def __init__(self, heart_beat_model: HeartBeatModel,
+                 abp_waveform_file_model: AbpWaveformFileModel, parent=None):
         super().__init__(parent)
         self._heart_beat_model = heart_beat_model
+        self._waveform_file_model = abp_waveform_file_model
         self._task_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._is_connected = False

@@ -1,3 +1,4 @@
 from .heart_beat_waveform_page_viewmodel import HeartBeatWaveformPageViewModel
+from .heart_beat_load_from_file_page_viewmodel import HeartBeatLoadWaveformFromFilePageViewModel
 from .item_list_viewmodel import ItemListViewModel
 from .ni_6216_viewmodel import NI6216ViewModel

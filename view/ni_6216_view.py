@@ -69,5 +69,8 @@ class NI6216View(QWidget):
         self._gen_button.setChecked(running)
         self._gen_button.setText("Stop Generation" if running else "Start Generation")
         self._gen_button.blockSignals(False)
+
+
+
     
 

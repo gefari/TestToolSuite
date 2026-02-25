@@ -25,7 +25,7 @@ class HeartBeatModel(QObject):
         self._abp_waveform_time_points = []
         self._abp_waveform_pressure_points = []
 
-        self.generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
+        self._generate_single_abp_beat(self._num_of_samples_per_HeartBeat)
 
     def get_waveform_points(self):
         return {
@@ -42,7 +42,7 @@ class HeartBeatModel(QObject):
     def set_waveform_points(self, value):
         raise NotImplementedError("Direct waveform point assignment is not supported.")
     
-    def generate_single_abp_beat(self, num_of_samples_per_heart_beat):
+    def _generate_single_abp_beat(self, num_of_samples_per_heart_beat):
         self._abp_reference_time_points.clear()
 
         for time_point in self._abp_reference_percentage_time_points: 
