@@ -20,6 +20,12 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
     def __init__(self, viewmodel, parent=None):
         super().__init__(parent)
         self._viewmodel = viewmodel
+
+        # View listens to ViewModel only
+        # View model can send the waveform point or a load error
+        self._viewmodel.waveform_loaded.connect(self._on_waveform_loaded)
+        self._viewmodel.load_error.connect(self._on_load_error)
+
         self._init_ui()
 
     def _init_ui(self):
@@ -61,9 +67,6 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
         self.series.attachAxis(self.axis_x)
         self.series.attachAxis(self.axis_y)
 
-        #self.chart_view = QChartView(self.chart)  # plain view, no drag needed
-        #self.chart_view.setRenderHint(QPainter.Antialiasing)
-        #main_layout.addWidget(self.chart_view)
 
         # ── InteractiveChartView: pan/zoom/reset built-in ──────────────────
         # No callbacks needed — this page has no draggable reference points
@@ -78,7 +81,16 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
 
         main_layout.addStretch()
 
+    """ To UI """
+    def _on_waveform_loaded(self, time, pressure):
+        self._populate_chart(time, pressure)
 
+    """ To UI """
+    @staticmethod
+    def _on_load_error(msg):
+        print(msg)
+
+    """ From UI """
     def _on_load_waveform_button_clicked(self):
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -91,7 +103,7 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
             return  # user cancelled — do nothing
 
         try:
-            self._load_waveform_from_file(path)
+            self._viewmodel.new_file_loaded(path)
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -99,14 +111,21 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
                 f"Failed to load waveform:\n\n{e}"
             )
 
-    def _populate_chart(self, time_points: np.ndarray, pressure_points: np.ndarray):
+    def _populate_chart(self,
+                        time_points: np.ndarray,
+                        pressure_points: np.ndarray):
         """Clear the series and repaint with new data."""
         self.series.clear()
 
         # Build the point list in one vectorised pass — no Python loop
+        #points = [
+        #    QPointF(t, p)
+        #    for t, p in zip(time_points.tolist(), pressure_points.tolist())
+        #]
+
         points = [
             QPointF(t, p)
-            for t, p in zip(time_points.tolist(), pressure_points.tolist())
+            for t, p in zip(time_points, pressure_points)
         ]
 
         self.series.replace(points)  # single C++ call, replaces all points at once
@@ -119,32 +138,4 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
             float(np.min(pressure_points)) - 5,
             float(np.max(pressure_points)) + 5
         )
-
-    def _load_waveform_from_file(self, path: str):
-        """
-        Parse a single-column CSV/TXT file: one pressure value (mmHg) per line.
-        Lines starting with '#' are treated as comments and skipped.
-        Sample index is auto-generated (0, 1, 2, ...).
-        """
-        pressure_points = []
-
-        with open(path, newline="", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            for line_num, row in enumerate(reader, start=1):
-                if not row or row[0].strip().startswith("#"):
-                    continue
-                try:
-                    p = float(row[0].strip())
-                except ValueError:
-                    raise ValueError(
-                        f"Line {line_num}: cannot parse pressure value → {row[0]!r}"
-                    )
-                pressure_points.append(p)
-
-        if not pressure_points:
-            raise ValueError("File contains no valid data rows.")
-
-        time_points = np.arange(len(pressure_points), dtype=float)  # 0, 1, 2, ...
-
-        self._populate_chart(time_points, np.array(pressure_points))
 
