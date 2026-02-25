@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
 
         # Main layout
         main_layout = QHBoxLayout(central_widget)
+
         # List Model
         self.items = [
             model.ItemModel("Heart Beat", "fa5s.sliders-h",  ViewID.HEARTBEAT),
@@ -101,12 +102,11 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
-        # Create models
+        # Create heart beat models
         self.heart_beat_model = model.HeartBeatModel()
         self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model)
 
         self.initialize_views()
-
 
         # Clock label in status bar
         self.clock_label = QLabel()
@@ -120,10 +120,11 @@ class MainWindow(QMainWindow):
 
     def initialize_views(self):
         # HEART BEAT VIEW
-        heart_beat_viewmodel = viewmodel.HeartBeatViewModel(self.heart_beat_model)
-        heart_beat_view = view.HeartBeatView(heart_beat_viewmodel) 
+        heart_beat_viewmodel = viewmodel.HeartBeatWaveformPageViewModel(self.heart_beat_model)
+        heart_beat_view = view.HeartBeatView(heart_beat_viewmodel)
         self.view_lookup[ViewID.HEARTBEAT] = heart_beat_view
         self.stacked_widget.addWidget(heart_beat_view)
+
         # NI VIEW
         ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
         ni_6216_viewmodel.status_message.connect(self.status_bar.showMessage)

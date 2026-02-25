@@ -1,7 +1,7 @@
 from PySide6.QtCore import QObject, Signal, Property
 
 # This class represents the bridge between the model and the view for the HeartBeat Functionalities
-class HeartBeatViewModel(QObject):
+class HeartBeatWaveformPageViewModel(QObject):
     waveform_data_changed = Signal()
     reference_waveform_data_changed = Signal()
 
