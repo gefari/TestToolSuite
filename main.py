@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
             view_ref = self.view_lookup.get(view_id)
             if view_ref:
                 self.stacked_widget.setCurrentWidget(view_ref)
-            self.status_bar.showMessage(f"Selected {selected_model.name}")
+            self.status_bar.showMessage(f"Selected Model: {selected_model.name}")
 
     def _update_clock(self):
         now = QDateTime.currentDateTime()

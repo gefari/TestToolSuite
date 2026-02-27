@@ -117,12 +117,6 @@ class HeartBeatLoadWaveformFromFilePage(QWidget):
         """Clear the series and repaint with new data."""
         self.series.clear()
 
-        # Build the point list in one vectorised pass — no Python loop
-        #points = [
-        #    QPointF(t, p)
-        #    for t, p in zip(time_points.tolist(), pressure_points.tolist())
-        #]
-
         points = [
             QPointF(t, p)
             for t, p in zip(time_points, pressure_points)

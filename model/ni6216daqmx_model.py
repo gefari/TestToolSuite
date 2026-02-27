@@ -28,6 +28,7 @@ class Ni6216DaqMx(QObject):
         self._heart_beat_model = heart_beat_model
         self._waveform_file_model = abp_waveform_file_model
         self._task_lock = threading.Lock()
+        self._waveform_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._is_connected = False
         self._task = None
@@ -42,8 +43,10 @@ class Ni6216DaqMx(QObject):
         self._ao1_ref = None
         self._sync_waveform()
 
-        # React to future waveform changes
+        # Connect to "waveform_data_changed" from "heart_beat_model"
         self._heart_beat_model.waveform_data_changed.connect(self._on_waveform_changed)
+        # Connect to "waveform_data_changed" from "waveform_file_model"
+        self._waveform_file_model.waveform_changed.connect(self._on_waveform_file_changed)
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -69,14 +72,16 @@ class Ni6216DaqMx(QObject):
             try:
                 device = usb.core.find(idVendor=NI_6216_VID, idProduct=NI_6216_PID)
                 if device is not None:
-                    self._set_connected(True)
-                    self.status_message.emit(
-                        f"NI-6216 Connected:"
-                        f"[VID:{device.idVendor:04X},PID:{device.idProduct:04X}]"
-                    )
+                    if not self._is_connected:
+                        self._set_connected(True)
+                        self.status_message.emit(
+                            f"NI-6216 Connected: "
+                            f"[VID:{device.idVendor:04X},PID:{device.idProduct:04X}]"
+                        )
                 else:
-                    self._set_connected(False)
-                    self.status_message.emit("NI-6216: device not found.")
+                    if self._is_connected:  # ← only on transition
+                        self._set_connected(False)
+                        self.status_message.emit("NI-6216: device not found.")
             except Exception as e:
                 error_msg = f"USB error: {e}"
                 self._set_connected(False)
@@ -94,9 +99,16 @@ class Ni6216DaqMx(QObject):
                 logger.warning(msg)
                 return
 
+            # Snapshot waveform atomically
+            with self._waveform_lock:
+                ao0 = self._ao0_waveform
+                ao1 = self._ao1_ref
+
+            samples_per_channel = len(ao0)
+
             self._task = nidaqmx.Task()
             try:
-                samples_per_channel = len(self._ao0_waveform)
+                #samples_per_channel = len(self._ao0_waveform)
 
                 self._task.ao_channels.add_ao_voltage_chan(
                     "Dev1/ao0", min_val=-10.0, max_val=10.0
@@ -112,7 +124,7 @@ class Ni6216DaqMx(QObject):
                 self._task.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
 
                 waveforms = np.ascontiguousarray(
-                    np.vstack((self._ao0_waveform, self._ao1_ref))
+                    np.vstack((ao0, ao1))
                 )
 
                 AnalogMultiChannelWriter(self._task.out_stream).write_many_sample(waveforms)
@@ -127,6 +139,7 @@ class Ni6216DaqMx(QObject):
                 error_msg = f"NI-6216 generation error: {e}"
                 self._task.close()
                 self._task = None
+                self.generation_state_changed.emit(False)
                 logger.warning(error_msg)
                 self.status_message.emit(error_msg)
 
@@ -148,6 +161,37 @@ class Ni6216DaqMx(QObject):
                 logger.debug(msg)
                 self.status_message.emit(msg)
 
+    def set_static_pressure(self, pressure_mmhg: float = 0.0):
+        with self._task_lock:
+            if self._task is not None or not self._is_connected:
+                logger.debug(f"Task Status: {self._task} Connection Status:{self._is_connected}")
+                return
+
+            logger.info(f"Zero Pressure requested at {pressure_mmhg} mmHg")
+            task = nidaqmx.Task()
+            try:
+                task.ao_channels.add_ao_voltage_chan("Dev1/ao0", min_val=-10.0, max_val=10.0)
+                task.ao_channels.add_ao_voltage_chan("Dev1/ao1", min_val=-10.0, max_val=10.0)
+
+                voltage = mm_hg_to_volts(pressure_mmhg)
+                AnalogMultiChannelWriter(task.out_stream).write_one_sample(
+                    np.array([voltage, self.SINGLE_ENDED_REF_VOLTAGE])
+                )
+
+                task.start()
+                self._task = task
+                self.generation_state_changed.emit(True)
+                msg = f"NI-6216: fixed pressure output {pressure_mmhg} mmHg ({voltage:.3f} V)."
+                logger.debug(msg)
+                self.status_message.emit(msg)
+
+            except Exception as e:
+                error_msg = f"NI-6216 zero pressure error: {e}"
+                task.close()
+                self.generation_state_changed.emit(False)
+                logger.warning(error_msg)
+                self.status_message.emit(error_msg)
+
     def stop(self):
         self.stop_generation()
         self._stop_event.set()
@@ -157,23 +201,42 @@ class Ni6216DaqMx(QObject):
         """Pull latest pressure points from HeartBeatModel and convert to volts."""
         waveform = self._heart_beat_model.get_waveform_points()
         pressure_points = np.array(waveform['abp_waveform_pressure_points'])
+        ao0 = np.array([mm_hg_to_volts(p) for p in pressure_points])
+        ao1 = np.full(len(ao0), self.SINGLE_ENDED_REF_VOLTAGE)
+        # Assign atomically under a dedicated waveform lock
+        with self._waveform_lock:
+            self._ao0_waveform = ao0
+            self._ao1_ref = ao1
 
-        # Convert mmHg → volts for ao0
-        self._ao0_waveform = np.array([mm_hg_to_volts(p) for p in pressure_points])
-
-        # ao1 stays as flat reference voltage
-        self._ao1_ref = np.full(len(self._ao0_waveform), self.SINGLE_ENDED_REF_VOLTAGE)
+    def _sync_file_waveform(self):
+        """Pull latest pressure points from HeartBeatModel and convert to volts."""
+        pressure_points = np.array(self._waveform_file_model.pressure_points)
+        ao0 = (np.array([mm_hg_to_volts(p) for p in pressure_points]))/10
+        ao0 = np.clip(ao0, -10.0, 10.0)
+        ao1 = np.full(len(ao0), self.SINGLE_ENDED_REF_VOLTAGE)
+        # Assign atomically under a dedicated waveform lock
+        with self._waveform_lock:
+            self._ao0_waveform = ao0
+            self._ao1_ref = ao1
 
     def _on_waveform_changed(self):
         with self._task_lock:
-            if self._task is None:
-                return
-            """Called from main thread via Qt signal. Calls stop then start — lock acquired separately in each."""
-            was_generating = self.is_generating
-            if was_generating:
-                self.stop_generation() # releases lock before returning
-            self._sync_waveform()
-            self.status_message.emit("NI-6216: waveform updated from HeartBeat model.")
+            was_generating = self._task is not None
+        #was_generating = self.is_generating
+        if was_generating:
+            self.stop_generation()
+        self._sync_waveform()
+        self.status_message.emit("NI-6216: waveform updated from HeartBeat model.")
+        if was_generating:
+            self.start_generation()
 
-            if was_generating:
-                self.start_generation()  # re-acquires lock
+    def _on_waveform_file_changed(self):
+        with self._task_lock:
+            was_generating = self._task is not None
+        #was_generating = self.is_generating
+        if was_generating:
+            self.stop_generation()
+        self._sync_file_waveform()
+        self.status_message.emit("NI-6216: waveform updated from waveform file model.")
+        if was_generating:
+            self.start_generation()

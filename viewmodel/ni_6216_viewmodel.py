@@ -28,3 +28,5 @@ class NI6216ViewModel(QObject):
     def stop_generation(self):
         self._daq_model.stop_generation()    # pure delegation
 
+    def set_static_pressure(self, pressure_mmhg: float):
+        self._daq_model.set_static_pressure(pressure_mmhg)
