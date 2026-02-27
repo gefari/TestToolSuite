@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
             "Start DAQMx Generation",
             self
         )
+
         self._daq_action.setCheckable(True)
         self._daq_action.setEnabled(False)  # disabled until device connects
         self._daq_action.triggered.connect(self._on_daq_action_triggered)

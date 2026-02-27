@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import os
-import inspect
+import sys
 from pathlib import Path
 
 class HeartBeatManager:
@@ -37,10 +37,13 @@ class HeartBeatManager:
             )
         return self._waveform_dictionary
 
-    
-    def get_settings_path(self) -> Path:
+    @staticmethod
+    def get_settings_path() -> Path:
         if os.name == "nt":
-            # Resolve relative to this source file's parent directory
+            if hasattr(sys, '_MEIPASS'):
+                # Running as a PyInstaller bundle
+                return Path(sys._MEIPASS)
+            # Running normally in development
             return Path(__file__).resolve().parent.parent
         else:
             xdg = os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
