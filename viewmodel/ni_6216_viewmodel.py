@@ -30,3 +30,8 @@ class NI6216ViewModel(QObject):
 
     def set_static_pressure(self, pressure_mmhg: float):
         self._daq_model.set_static_pressure(pressure_mmhg)
+
+    def set_min_sample_rate(self, value: int) -> None:
+        if value == self._daq_model.get_min_sample_rate():
+            return
+        self._daq_model.set_min_sample_rate(value)

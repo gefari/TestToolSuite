@@ -20,19 +20,33 @@ class NI6216View(QWidget):
         status_layout.addStretch()
         main_layout.addLayout(status_layout)
 
+        # Spins box to change DaqMx Sample rate
+        min_sample_rate_layout = QHBoxLayout()
+        min_sample_rate_label = QLabel("Minimum Sample Rate:")
+        min_sample_rate_layout.addWidget(min_sample_rate_label)
+
+        self._min_sample_rate_spinbox = QSpinBox()
+        self._min_sample_rate_spinbox.setRange(1000, 50000)  # clinically safe range
+        self._min_sample_rate_spinbox.setValue(10000)  # default 1000 SPS
+        self._min_sample_rate_spinbox.setEnabled(False)
+        self._min_sample_rate_spinbox.valueChanged.connect(self._on_min_sample_rate_changed)
+        min_sample_rate_layout.addWidget(self._min_sample_rate_spinbox)
+        min_sample_rate_layout.addStretch()
+        main_layout.addLayout(min_sample_rate_layout)
+
         # --- Start/Stop button ---
         self._gen_button = QPushButton("Start Generation")
         self._gen_button.setCheckable(True)
-        self._gen_button.setEnabled(False)  # disabled until device is disconnected
+        self._gen_button.setEnabled(False)  # disabled until device is connected
         self._gen_button.toggled.connect(self._on_start_stop_toggled)
         main_layout.addWidget(self._gen_button)
 
-        # --- Zero / Fixed pressure row ---
+        # --- Static pressure row ---
         zero_layout = QHBoxLayout()
         # --- ZERO button ---
         self._static_pressure_button = QPushButton("Set Pressure")
-        self._static_pressure_button.setEnabled(False)  # disabled until device is disconnected
-        self._static_pressure_button.clicked.connect(self._on_zero_button_clicked)
+        self._static_pressure_button.setEnabled(False)  # disabled until device is connected
+        self._static_pressure_button.clicked.connect(self._on_set_static_pressure_button_clicked)
 
         zero_layout.addWidget(self._static_pressure_button)
 
@@ -60,45 +74,47 @@ class NI6216View(QWidget):
         else:
             self._viewmodel.stop_generation()
 
-    def _on_zero_button_clicked(self):
+    def _on_set_static_pressure_button_clicked(self):
         self._viewmodel.set_static_pressure(self._static_pressure_spinbox.value())
 
+    def _on_min_sample_rate_changed(self):
+        self._viewmodel.set_min_sample_rate(self._min_sample_rate_spinbox.value())
+
     def _on_connection_changed(self, connected: bool):
-        if connected:
-            self._status_icon.setPixmap(
-                qta.icon("fa5s.circle", color="green").pixmap(16, 16)
-            )
-            self._status_label.setText("NI-6216 Connected")
-        else:
-            self._status_icon.setPixmap(
-                qta.icon("fa5s.circle", color="red").pixmap(16, 16)
-            )
-            self._status_label.setText("NI-6216 Disconnected")
+        self._gen_button.blockSignals(True)  # prevent re-triggering toggled
+        try:
+            if connected:
+                self._status_icon.setPixmap(
+                    qta.icon("fa5s.circle", color="green").pixmap(16, 16)
+                )
+                self._status_label.setText("NI-6216 Connected")
+            else:
+                self._status_icon.setPixmap(
+                    qta.icon("fa5s.circle", color="red").pixmap(16, 16)
+                )
+                self._status_label.setText("NI-6216 Disconnected")
 
-            # Stop generation and reset button if device is unplugged mid-run
-            if self._gen_button.isChecked():
-                self._gen_button.blockSignals(True)  # prevent re-triggering toggled
-                self._gen_button.setChecked(False)
-                #self._static_pressure_button.setChecked(False)
-                self._gen_button.blockSignals(False)
+                # Stop generation and reset button if device is unplugged mid-run
+                if self._gen_button.isChecked():
+                    #self._gen_button.blockSignals(True)  # prevent re-triggering toggled
+                    self._gen_button.setChecked(False)
+                    #self._gen_button.blockSignals(False)
 
-        self._gen_button.setEnabled(connected)
-        self._static_pressure_button.setEnabled(connected)
-        self._static_pressure_spinbox.setEnabled(connected)
+            self._gen_button.setEnabled(connected)
+            self._static_pressure_button.setEnabled(connected)
+            self._static_pressure_spinbox.setEnabled(connected)
+            self._min_sample_rate_spinbox.setEnabled(connected)
 
+        finally:
+            self._gen_button.blockSignals(False)
     def _on_generation_state_changed(self, running: bool):
-        # Keep button label in sync if state is changed externally
         self._gen_button.blockSignals(True)
-        self._gen_button.setChecked(running)
-        self._gen_button.setText("Stop Generation" if running else "Start Generation")
-        #self._static_pressure_button.setChecked(running)
-
-        self._static_pressure_button.setEnabled(not running and self._viewmodel.is_connected)
-        self._static_pressure_spinbox.setEnabled(not running and self._viewmodel.is_connected)
-
-        self._gen_button.blockSignals(False)
-
-
-
-    
+        try:
+            self._gen_button.setChecked(running)
+            self._gen_button.setText("Stop Generation" if running else "Start Generation")
+            self._static_pressure_button.setEnabled(not running and self._viewmodel.is_connected)
+            self._static_pressure_spinbox.setEnabled(not running and self._viewmodel.is_connected)
+            self._min_sample_rate_spinbox.setEnabled(not running and self._viewmodel.is_connected)
+        finally:
+            self._gen_button.blockSignals(False)
 

@@ -9,8 +9,10 @@ class HeartBeatView(QWidget):
 
     def __init__(self, waveform_page_viewmodel, load_from_file_page_viewmodel):
         super().__init__()
+
         self._heart_beat_waveform_page_viewmodel = waveform_page_viewmodel
         self._heart_beat_load_from_file_page_viewmodel = load_from_file_page_viewmodel
+
         self._init_ui()  # ← UI built first
 
     # ── UI Setup ──────────────────────────────────────────────────────────
@@ -41,7 +43,6 @@ class HeartBeatView(QWidget):
             "Calibration Values",
             QWidget()
         )
-
 
         root_layout.addWidget(self._inner_panel, stretch=1)
 

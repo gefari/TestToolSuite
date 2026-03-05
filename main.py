@@ -147,7 +147,6 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(heart_beat_view)
 
         # NI VIEW
-        #ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
         self.ni_6216_viewmodel.connection_changed.connect(self._on_daq_connection_changed)
         self.ni_6216_viewmodel.generation_state_changed.connect(self._on_daq_generation_state_changed)
 

@@ -4,6 +4,8 @@ from PySide6.QtCore import QObject, Signal, Property
 class HeartBeatWaveformPageViewModel(QObject):
     waveform_data_changed = Signal()
     reference_waveform_data_changed = Signal()
+    bpm_changed = Signal()
+    sample_rate_changed = Signal()
 
     def __init__(self, model):
         super().__init__()
@@ -34,4 +36,18 @@ class HeartBeatWaveformPageViewModel(QObject):
 
     def load_default_settings(self):
         self._heart_beat_model.load_default_settings()
+
+    def set_bpm(self, value: int) -> None:
+        if value == self._heart_beat_model.get_bpm():
+            return
+        self._heart_beat_model.set_bpm(value)
+
+    def get_bpm(self):
+        return self._heart_beat_model.get_bpm()
+
+    '''
+    @property
+    def sample_rate(self) -> int:
+        return self._heart_beat_model.get_sample_rate()
+    '''
 

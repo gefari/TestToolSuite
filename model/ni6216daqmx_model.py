@@ -21,6 +21,7 @@ class Ni6216DaqMx(QObject):
     status_message = Signal(str)
     connection_changed = Signal(bool)
     generation_state_changed = Signal(bool)
+    sample_rate_changed = Signal(int)
 
     def __init__(self, heart_beat_model: HeartBeatModel,
                  abp_waveform_file_model: AbpWaveformFileModel, parent=None):
@@ -36,7 +37,8 @@ class Ni6216DaqMx(QObject):
         self.ACTIVE_SEARCH_SLEEP_S = 1
         self.SINGLE_ENDED_REF_VOLTAGE = 0.0
 
-        self.SAMPLES_PER_SECOND = 1000
+        self._samples_per_seconds = 1000 # Override by viewmodel
+        self._min_samples_per_seconds = 1000 # Override by viewmodel
 
         # Build initial waveform from HeartBeatModel
         self._ao0_waveform = None
@@ -45,8 +47,11 @@ class Ni6216DaqMx(QObject):
 
         # Connect to "waveform_data_changed" from "heart_beat_model"
         self._heart_beat_model.waveform_data_changed.connect(self._on_waveform_changed)
+        # Connect to "sample_rate_changed" from "heart_beat_model"
+        self._heart_beat_model.sample_rate_changed.connect(self._on_sample_rate_changed)
         # Connect to "waveform_data_changed" from "waveform_file_model"
         self._waveform_file_model.waveform_changed.connect(self._on_waveform_file_changed)
+
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -58,6 +63,22 @@ class Ni6216DaqMx(QObject):
     @property
     def is_generating(self) -> bool:
         return self._task is not None
+
+    def set_sample_rate(self, sample_per_seconds: int) -> None:
+        if sample_per_seconds <= 0:
+            raise ValueError(f"Sample rate must be positive, got {sample_per_seconds}")
+        self._samples_per_seconds = sample_per_seconds
+        self._heart_beat_model.set_min_sample_per_seconds(sample_per_seconds)  # propagate
+        self.sample_rate_changed.emit(sample_per_seconds)
+
+    def get_sample_rate(self):
+        return self._samples_per_seconds
+
+    def get_min_sample_rate(self):
+        return self._min_samples_per_seconds
+
+    def set_min_sample_rate(self, value: int):
+        self._min_samples_per_seconds = value
 
     def _set_connected(self, value: bool):
         if self._is_connected != value:
@@ -117,7 +138,7 @@ class Ni6216DaqMx(QObject):
                     "Dev1/ao1", min_val=-10.0, max_val=10.0
                 )
                 self._task.timing.cfg_samp_clk_timing(
-                    rate=self.SAMPLES_PER_SECOND,
+                    rate=self._samples_per_seconds,
                     sample_mode=AcquisitionType.CONTINUOUS,
                     samps_per_chan=samples_per_channel
                 )
@@ -222,7 +243,6 @@ class Ni6216DaqMx(QObject):
     def _on_waveform_changed(self):
         with self._task_lock:
             was_generating = self._task is not None
-        #was_generating = self.is_generating
         if was_generating:
             self.stop_generation()
         self._sync_waveform()
@@ -233,10 +253,13 @@ class Ni6216DaqMx(QObject):
     def _on_waveform_file_changed(self):
         with self._task_lock:
             was_generating = self._task is not None
-        #was_generating = self.is_generating
         if was_generating:
             self.stop_generation()
         self._sync_file_waveform()
         self.status_message.emit("NI-6216: waveform updated from waveform file model.")
         if was_generating:
             self.start_generation()
+
+    def _on_sample_rate_changed(self, new_rate: int):
+        self._samples_per_seconds = new_rate
+        # No need to restart task — waveform_data_changed already triggers _on_waveform_changed
