@@ -16,6 +16,9 @@ class HeartBeatWaveformPage(QWidget):
     Extracted from HeartBeatView so it lives as one page
     inside HeartBeatView's InnerLeftPanel stack.
     """
+    BPM_MIN_VALUE = 30
+    BPM_MAX_VALUE = 240
+    BPM_DEFAULT_VALUE = 60
 
     def __init__(self, viewmodel, parent=None):
         super().__init__(parent)
@@ -32,20 +35,38 @@ class HeartBeatWaveformPage(QWidget):
         main_layout.setContentsMargins(4, 4, 4, 4)
         main_layout.setSpacing(4)
 
-        # --- BPM row ---
-        bpm_layout = QHBoxLayout()
+        # --- Pulse row ---
+        pulse_layout = QHBoxLayout()
         bpm_label = QLabel("Heart Rate:")
-        bpm_layout.addWidget(bpm_label)
+        pulse_layout.addWidget(bpm_label)
 
         self._bpm_spinbox = QSpinBox()
-        self._bpm_spinbox.setRange(30, 240)  # clinically safe range
-        self._bpm_spinbox.setValue(60)  # default 60 BPM
+        self._bpm_spinbox.setRange(self.BPM_MIN_VALUE, self.BPM_MAX_VALUE)  # clinically safe range
+        self._bpm_spinbox.setValue(self.BPM_DEFAULT_VALUE)  # default 60 BPM
         self._bpm_spinbox.setSuffix(" BPM")
         self._bpm_spinbox.setEnabled(True)
         self._bpm_spinbox.valueChanged.connect(self._on_bpm_changed)
-        bpm_layout.addWidget(self._bpm_spinbox)
-        bpm_layout.addStretch()
-        main_layout.addLayout(bpm_layout)
+        pulse_layout.addWidget(self._bpm_spinbox)
+        pulse_layout.addStretch()
+
+
+        # --- Pulse duration ---
+        pulse_duration_label = QLabel("Single Pulse duration (ms):")
+        pulse_layout.addWidget(pulse_duration_label)
+
+        self._pulse_duration_spinbox = QSpinBox()
+        max_val = self._bpm_to_pulse_duration(self.BPM_MIN_VALUE)
+        min_val = self._bpm_to_pulse_duration(self.BPM_MAX_VALUE)
+        self._pulse_duration_spinbox.setRange(min_val, max_val)
+        default_val = self._bpm_to_pulse_duration(self.BPM_DEFAULT_VALUE)
+        self._pulse_duration_spinbox.setValue(default_val)
+        self._pulse_duration_spinbox.setSuffix(" ms")
+        self._pulse_duration_spinbox.setEnabled(True)
+        self._pulse_duration_spinbox.valueChanged.connect(self._on_pulse_duration_changed)
+        pulse_layout.addWidget(self._pulse_duration_spinbox)
+        pulse_layout.addStretch()
+
+        main_layout.addLayout(pulse_layout)
 
         # ── Chart ──────────────────────────────────────────────────────────
         self.chart = QChart()
@@ -165,8 +186,29 @@ class HeartBeatWaveformPage(QWidget):
         main_layout.addLayout(controls_layout)
         main_layout.addWidget(self.ref_table)
 
-    # ── All waveform/table methods (unchanged from HeartBeatView) ──────────
+    @staticmethod
+    def _bpm_to_pulse_duration(bpm: int) -> int:
 
+        num_of_pulses_per_second = bpm/60
+        pulse_duration_s = 1/num_of_pulses_per_second
+        pulse_duration_ms = int(pulse_duration_s * 1000)
+        return pulse_duration_ms
+
+        '''
+        return int((60 / bpm) * 1000)
+        '''
+
+    @staticmethod
+    def _pulse_duration_to_bpm(pulse_duration_ms: int) -> int:
+        num_of_pulses_per_s = 1000/pulse_duration_ms
+        bpm = int(num_of_pulses_per_s * 60)
+        return bpm
+
+        '''
+        return int((1000 / pulse_duration_ms) * 60)
+        '''
+
+    # ── All waveform/table methods (unchanged from HeartBeatView) ──────────
     def update_waveform_data(self):
         self.series.clear()
         self.ref_points_series.clear()
@@ -270,7 +312,15 @@ class HeartBeatWaveformPage(QWidget):
         self._heartbeat_viewmodel.load_default_settings()
 
     def _on_bpm_changed(self, value: int):
+        self._pulse_duration_spinbox.blockSignals(True)
+        self._pulse_duration_spinbox.setValue(self._bpm_to_pulse_duration(value))
+        self._pulse_duration_spinbox.blockSignals(False)
         self._heartbeat_viewmodel.set_bpm(value)
+
+    def _on_pulse_duration_changed(self, value: int):
+        self._bpm_spinbox.blockSignals(True)
+        self._bpm_spinbox.setValue(self._pulse_duration_to_bpm(value))
+        self._bpm_spinbox.blockSignals(False)
 
     def _on_sample_rate_changed(self, new_rate: int):
         pass  # Time axis depends on BPM only; waveform_data_changed handles the redraw

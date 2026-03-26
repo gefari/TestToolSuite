@@ -57,7 +57,7 @@ class HeartBeatModel(QObject):
         return self._sample_per_seconds
 
     def set_bpm(self, bpm: int) -> None:
-        if not (1 <= bpm <= 300):
+        if not (30 <= bpm <= 240):
             raise ValueError(f"BPM out of physiological range: {bpm}")
         self._bpm = bpm
         self._sample_per_seconds = self._compute_required_sample_rate()  # auto-adapt
