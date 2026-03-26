@@ -45,9 +45,4 @@ class HeartBeatWaveformPageViewModel(QObject):
     def get_bpm(self):
         return self._heart_beat_model.get_bpm()
 
-    '''
-    @property
-    def sample_rate(self) -> int:
-        return self._heart_beat_model.get_sample_rate()
-    '''
 

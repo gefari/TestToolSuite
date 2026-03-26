@@ -37,12 +37,6 @@ class HeartBeatLoadWaveformFromFilePageViewModel(QObject):
     '''
     def _on_waveform_changed(self):
         self._emit_waveform()
-        '''
-        self.waveform_loaded.emit(
-            self._heart_beat_from_file_model.time_points,
-            self._heart_beat_from_file_model.pressure_points,
-            self._loaded_filename)
-        '''
 
     def _emit_waveform(self):
         raw = self._heart_beat_from_file_model.pressure_points  # already scaled
