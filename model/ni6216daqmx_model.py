@@ -232,7 +232,7 @@ class Ni6216DaqMx(QObject):
     def _sync_file_waveform(self):
         """Pull latest pressure points from HeartBeatModel and convert to volts."""
         pressure_points = np.array(self._waveform_file_model.pressure_points)
-        ao0 = (np.array([mm_hg_to_volts(p) for p in pressure_points]))/10
+        ao0 = np.array([mm_hg_to_volts(p) for p in pressure_points])
         ao0 = np.clip(ao0, -10.0, 10.0)
         ao1 = np.full(len(ao0), self.SINGLE_ENDED_REF_VOLTAGE)
         # Assign atomically under a dedicated waveform lock
@@ -251,14 +251,15 @@ class Ni6216DaqMx(QObject):
             self.start_generation()
 
     def _on_waveform_file_changed(self):
-        with self._task_lock:
+       with self._task_lock:
             was_generating = self._task is not None
-        if was_generating:
-            self.stop_generation()
-        self._sync_file_waveform()
-        self.status_message.emit("NI-6216: waveform updated from waveform file model.")
-        if was_generating:
-            self.start_generation()
+       if was_generating:
+           self.stop_generation()
+       self._sync_file_waveform()
+       self._sync_waveform()
+       self.status_message.emit("NI-6216: waveform updated from waveform file model.")
+       if was_generating:
+           self.start_generation()
 
     def _on_sample_rate_changed(self, new_rate: int):
         self._samples_per_seconds = new_rate

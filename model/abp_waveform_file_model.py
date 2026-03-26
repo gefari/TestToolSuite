@@ -8,6 +8,7 @@ class AbpWaveformFileModel(QObject):
         super().__init__()
         self._abp_waveform_time_points = []
         self._abp_waveform_pressure_points = []
+        self._scale: float = 1.0
 
     @property
     def time_points(self) -> list:
@@ -15,7 +16,17 @@ class AbpWaveformFileModel(QObject):
 
     @property
     def pressure_points(self) -> list:
-        return self._abp_waveform_pressure_points
+        """Returns scaled pressure points — consumed by both chart and DAQmx."""
+        return [p * self._scale for p in self._abp_waveform_pressure_points]
+
+    @property
+    def scale(self) -> float:
+        return self._scale
+
+    def set_scale(self, scale: float):
+        """Update the scale factor and notify all subscribers."""
+        self._scale = scale
+        self.waveform_changed.emit()  # DAQmx + chart both react automatically
 
     '''
     The key point is that set_waveform() in the model 
