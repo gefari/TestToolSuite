@@ -9,6 +9,7 @@ class AbpWaveformFileModel(QObject):
         self._abp_waveform_time_points = []
         self._abp_waveform_pressure_points = []
         self._scale: float = 1.0
+        self._sample_per_seconds = 1000
 
     @property
     def time_points(self) -> list:
@@ -45,3 +46,9 @@ class AbpWaveformFileModel(QObject):
         self._abp_waveform_pressure_points = []
         self._abp_waveform_time_points = []
         self.waveform_changed.emit()
+
+    def set_sample_per_seconds(self, sps: int) -> None:
+        if sps <= 0:
+            raise ValueError(f"Sample rate must be positive: {sps}")
+        self._sample_per_seconds = sps
+

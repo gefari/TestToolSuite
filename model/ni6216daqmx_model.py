@@ -18,13 +18,20 @@ NI_6216_VID = 0x3923
 NI_6216_PID = 0x733B
 
 class Ni6216DaqMx(QObject):
+
+    NIDAQ_AO_MIN_VALUE = -10.0
+    NIDAQ_AO_MAX_VALUE = 10.0
+
     status_message = Signal(str)
     connection_changed = Signal(bool)
     generation_state_changed = Signal(bool)
     sample_rate_changed = Signal(int)
+    waveform_changed = Signal(object, object)  # (ao0: np.ndarray, ao1: np.ndarray)
 
-    def __init__(self, heart_beat_model: HeartBeatModel,
-                 abp_waveform_file_model: AbpWaveformFileModel, parent=None):
+    def __init__(self,
+                 heart_beat_model: HeartBeatModel,
+                 abp_waveform_file_model: AbpWaveformFileModel,
+                 parent=None):
         super().__init__(parent)
         self._heart_beat_model = heart_beat_model
         self._waveform_file_model = abp_waveform_file_model
@@ -37,8 +44,7 @@ class Ni6216DaqMx(QObject):
         self.ACTIVE_SEARCH_SLEEP_S = 1
         self.SINGLE_ENDED_REF_VOLTAGE = 0.0
 
-        self._samples_per_seconds = 1000 # Override by viewmodel
-        self._min_samples_per_seconds = 1000 # Override by viewmodel
+        self._samples_per_seconds = 1000
 
         # Build initial waveform from HeartBeatModel
         self._ao0_waveform = None
@@ -65,20 +71,18 @@ class Ni6216DaqMx(QObject):
         return self._task is not None
 
     def set_sample_rate(self, sample_per_seconds: int) -> None:
-        if sample_per_seconds <= 0:
-            raise ValueError(f"Sample rate must be positive, got {sample_per_seconds}")
+        if 0 >= sample_per_seconds >= 8000:
+            raise ValueError(f"Sample rate must be positive or less than 8000, got {sample_per_seconds}")
+
         self._samples_per_seconds = sample_per_seconds
-        self._heart_beat_model.set_min_sample_per_seconds(sample_per_seconds)  # propagate
+
+        self._heart_beat_model.set_sample_per_seconds(sample_per_seconds)  # propagate
+        self._waveform_file_model.set_sample_per_seconds(sample_per_seconds)
+
         self.sample_rate_changed.emit(sample_per_seconds)
 
     def get_sample_rate(self):
         return self._samples_per_seconds
-
-    def get_min_sample_rate(self):
-        return self._min_samples_per_seconds
-
-    def set_min_sample_rate(self, value: int):
-        self._min_samples_per_seconds = value
 
     def _set_connected(self, value: bool):
         if self._is_connected != value:
@@ -132,10 +136,10 @@ class Ni6216DaqMx(QObject):
                 #samples_per_channel = len(self._ao0_waveform)
 
                 self._task.ao_channels.add_ao_voltage_chan(
-                    "Dev1/ao0", min_val=-10.0, max_val=10.0
+                    "Dev1/ao0", min_val=self.NIDAQ_AO_MIN_VALUE, max_val=self.NIDAQ_AO_MAX_VALUE
                 )
                 self._task.ao_channels.add_ao_voltage_chan(
-                    "Dev1/ao1", min_val=-10.0, max_val=10.0
+                    "Dev1/ao1", min_val=self.NIDAQ_AO_MIN_VALUE, max_val=self.NIDAQ_AO_MAX_VALUE
                 )
                 self._task.timing.cfg_samp_clk_timing(
                     rate=self._samples_per_seconds,
@@ -144,9 +148,7 @@ class Ni6216DaqMx(QObject):
                 )
                 self._task.out_stream.regen_mode = RegenerationMode.ALLOW_REGENERATION
 
-                waveforms = np.ascontiguousarray(
-                    np.vstack((ao0, ao1))
-                )
+                waveforms = np.ascontiguousarray(np.vstack((ao0, ao1)))
 
                 AnalogMultiChannelWriter(self._task.out_stream).write_many_sample(waveforms)
 
@@ -191,8 +193,8 @@ class Ni6216DaqMx(QObject):
             logger.info(f"Zero Pressure requested at {pressure_mmhg} mmHg")
             task = nidaqmx.Task()
             try:
-                task.ao_channels.add_ao_voltage_chan("Dev1/ao0", min_val=-10.0, max_val=10.0)
-                task.ao_channels.add_ao_voltage_chan("Dev1/ao1", min_val=-10.0, max_val=10.0)
+                task.ao_channels.add_ao_voltage_chan("Dev1/ao0", min_val=self.NIDAQ_AO_MIN_VALUE, max_val=self.NIDAQ_AO_MAX_VALUE)
+                task.ao_channels.add_ao_voltage_chan("Dev1/ao1", min_val=self.NIDAQ_AO_MIN_VALUE, max_val=self.NIDAQ_AO_MAX_VALUE)
 
                 voltage = mm_hg_to_volts(pressure_mmhg)
                 AnalogMultiChannelWriter(task.out_stream).write_one_sample(
@@ -228,17 +230,19 @@ class Ni6216DaqMx(QObject):
         with self._waveform_lock:
             self._ao0_waveform = ao0
             self._ao1_ref = ao1
+        self.waveform_changed.emit(ao0, ao1)
 
     def _sync_file_waveform(self):
         """Pull latest pressure points from HeartBeatModel and convert to volts."""
         pressure_points = np.array(self._waveform_file_model.pressure_points)
         ao0 = np.array([mm_hg_to_volts(p) for p in pressure_points])
-        ao0 = np.clip(ao0, -10.0, 10.0)
+        ao0 = np.clip(ao0, self.NIDAQ_AO_MIN_VALUE, self.NIDAQ_AO_MAX_VALUE)
         ao1 = np.full(len(ao0), self.SINGLE_ENDED_REF_VOLTAGE)
         # Assign atomically under a dedicated waveform lock
         with self._waveform_lock:
             self._ao0_waveform = ao0
             self._ao1_ref = ao1
+        self.waveform_changed.emit(ao0, ao1)
 
     def _on_waveform_changed(self):
         with self._task_lock:
@@ -256,7 +260,6 @@ class Ni6216DaqMx(QObject):
        if was_generating:
            self.stop_generation()
        self._sync_file_waveform()
-       self._sync_waveform()
        self.status_message.emit("NI-6216: waveform updated from waveform file model.")
        if was_generating:
            self.start_generation()
@@ -264,3 +267,8 @@ class Ni6216DaqMx(QObject):
     def _on_sample_rate_changed(self, new_rate: int):
         self._samples_per_seconds = new_rate
         # No need to restart task — waveform_data_changed already triggers _on_waveform_changed
+
+    def get_waveforms(self):
+        """Return a snapshot of the current (ao0, ao1) waveform arrays."""
+        with self._waveform_lock:
+            return self._ao0_waveform, self._ao1_ref

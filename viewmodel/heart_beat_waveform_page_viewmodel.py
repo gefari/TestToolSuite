@@ -2,6 +2,8 @@ from PySide6.QtCore import QObject, Signal, Property
 
 # This class represents the bridge between the model and the view for the HeartBeat Functionalities
 class HeartBeatWaveformPageViewModel(QObject):
+
+    # Signals
     waveform_data_changed = Signal()
     reference_waveform_data_changed = Signal()
     bpm_changed = Signal()
@@ -9,6 +11,7 @@ class HeartBeatWaveformPageViewModel(QObject):
 
     def __init__(self, model):
         super().__init__()
+
         self._heart_beat_model = model
         self._heart_beat_model.waveform_data_changed.connect(self.waveform_data_changed)
         self._heart_beat_model.waveform_data_changed.connect(self.reference_waveform_data_changed)
@@ -44,5 +47,13 @@ class HeartBeatWaveformPageViewModel(QObject):
 
     def get_bpm(self):
         return self._heart_beat_model.get_bpm()
+
+    def set_pulse_duration(self, value: int) -> None:
+        if value == self._heart_beat_model.get_pulse_duration_ms():
+            return
+        self._heart_beat_model.set_pulse_duration_ms(value)
+
+    def get_pulse_duration(self) -> int:
+        return self._heart_beat_model.get_pulse_duration_ms()
 
 

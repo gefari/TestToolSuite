@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCharts import QChart, QLineSeries, QValueAxis, QScatterSeries
 from PySide6.QtGui import QPainter, QColor, QPen
-from PySide6.QtCore import Qt, QPointF
+from PySide6.QtCore import Qt, QPointF, QMargins
 
 from view.interactive_chart_view import InteractiveChartView
 import numpy as np
@@ -58,8 +58,8 @@ class HeartBeatWaveformPage(QWidget):
         max_val = self._bpm_to_pulse_duration(self.BPM_MIN_VALUE)
         min_val = self._bpm_to_pulse_duration(self.BPM_MAX_VALUE)
         self._pulse_duration_spinbox.setRange(min_val, max_val)
-        default_val = self._bpm_to_pulse_duration(self.BPM_DEFAULT_VALUE)
-        self._pulse_duration_spinbox.setValue(default_val)
+        pulse_duration = self._bpm_to_pulse_duration(self.BPM_DEFAULT_VALUE)
+        self._pulse_duration_spinbox.setValue(pulse_duration)
         self._pulse_duration_spinbox.setSuffix(" ms")
         self._pulse_duration_spinbox.setEnabled(True)
         self._pulse_duration_spinbox.valueChanged.connect(self._on_pulse_duration_changed)
@@ -72,6 +72,9 @@ class HeartBeatWaveformPage(QWidget):
         self.chart = QChart()
         self.chart.setTheme(QChart.ChartThemeDark)
         self.chart.legend().setVisible(True)
+        self.chart.setMargins(QMargins(12, 12, 24, 12))
+        self.chart.setBackgroundRoundness(0)
+        self.chart.setDropShadowEnabled(False)
 
         self.series = QLineSeries()
         self.series.setName("ABP Waveform")
@@ -97,13 +100,13 @@ class HeartBeatWaveformPage(QWidget):
         dash_pen.setWidth(1)
         self.axis_x_sample.setGridLinePen(dash_pen)
 
-        # X Axis Top (time in seconds)
+        # X Axis Top (time in ms)
         self.axis_x_time = QValueAxis()
-        self.axis_x_time.setTitleText("Time (s)")
-        self.axis_x_time.setLabelFormat("%.2f")
+        self.axis_x_time.setTitleText("Time (ms)")
+        self.axis_x_time.setLabelFormat("%.0f")
         self.axis_x_time.setTickType(QValueAxis.TicksDynamic)
-        self.axis_x_time.setTickInterval(0.05)  # updated dynamically
-        self.axis_x_time.setTickAnchor(0.0)
+        self.axis_x_time.setTickInterval(50)  # updated dynamically
+        self.axis_x_time.setTickAnchor(0)
         self.axis_x_time.setGridLineVisible(False)  # avoid double grid
         dash_pen_top = QPen(QColor("#555555"))
         dash_pen_top.setStyle(Qt.DashLine)
@@ -186,6 +189,9 @@ class HeartBeatWaveformPage(QWidget):
         main_layout.addLayout(controls_layout)
         main_layout.addWidget(self.ref_table)
 
+        self._heartbeat_viewmodel.set_pulse_duration(pulse_duration)
+        self._heartbeat_viewmodel.set_bpm(self.BPM_DEFAULT_VALUE)
+
     @staticmethod
     def _bpm_to_pulse_duration(bpm: int) -> int:
 
@@ -194,9 +200,6 @@ class HeartBeatWaveformPage(QWidget):
         pulse_duration_ms = int(pulse_duration_s * 1000)
         return pulse_duration_ms
 
-        '''
-        return int((60 / bpm) * 1000)
-        '''
 
     @staticmethod
     def _pulse_duration_to_bpm(pulse_duration_ms: int) -> int:
@@ -204,9 +207,6 @@ class HeartBeatWaveformPage(QWidget):
         bpm = int(num_of_pulses_per_s * 60)
         return bpm
 
-        '''
-        return int((1000 / pulse_duration_ms) * 60)
-        '''
 
     # ── All waveform/table methods (unchanged from HeartBeatView) ──────────
     def update_waveform_data(self):
@@ -234,17 +234,15 @@ class HeartBeatWaveformPage(QWidget):
 
         # Bottom axis: samples
         self.axis_x_sample.setRange(x_min, x_max)
-        self.axis_x_sample.setTickAnchor(0.0)
-        self.axis_x_sample.setTickInterval(50)
+        self.axis_x_sample.setTickAnchor(0)
+        self.axis_x_sample.setTickInterval(int(x_max - x_min)/25)
 
-        # Top axis: time in seconds — derived from BPM only
-        bpm = self._heartbeat_viewmodel.get_bpm()
-        beat_duration_s = 60.0 / bpm  # e.g. 1.0 s at 60 BPM
         n_samples = len(time_points)
 
-        self.axis_x_time.setRange(0.0, beat_duration_s)
-        self.axis_x_time.setTickAnchor(0.0)
-        self.axis_x_time.setTickInterval(beat_duration_s / (n_samples / 50))  # ~same density as sample ticks
+        self.axis_x_time.setRange(0, int(self._heartbeat_viewmodel.get_pulse_duration()))
+        self.axis_x_time.setTickAnchor(0)
+        #self.axis_x_time.setTickInterval(int(self._heartbeat_viewmodel.get_pulse_duration() / (n_samples / 25)))
+        self.axis_x_time.setTickInterval(int(x_max - x_min)/25)
 
         self.axis_y.setRange(float(np.min(pressure_points)) - 5, float(np.max(pressure_points)) + 5)
         self._update_ref_table(keys, ref_times, ref_pressures)
@@ -313,14 +311,19 @@ class HeartBeatWaveformPage(QWidget):
 
     def _on_bpm_changed(self, value: int):
         self._pulse_duration_spinbox.blockSignals(True)
+        # BPM --> Pulse duration
         self._pulse_duration_spinbox.setValue(self._bpm_to_pulse_duration(value))
         self._pulse_duration_spinbox.blockSignals(False)
+        # Update View-Model
         self._heartbeat_viewmodel.set_bpm(value)
 
     def _on_pulse_duration_changed(self, value: int):
         self._bpm_spinbox.blockSignals(True)
+        # Pulse duration --> BPM
         self._bpm_spinbox.setValue(self._pulse_duration_to_bpm(value))
         self._bpm_spinbox.blockSignals(False)
+        # Update View-Model
+        self._heartbeat_viewmodel.set_pulse_duration(value)
 
     def _on_sample_rate_changed(self, new_rate: int):
         pass  # Time axis depends on BPM only; waveform_data_changed handles the redraw

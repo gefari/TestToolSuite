@@ -122,7 +122,8 @@ class MainWindow(QMainWindow):
         self.heart_beat_model = model.HeartBeatModel()
 
         # Pass the two model to the NI DAQMx
-        self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model, abp_waveform_file_model=self.abp_waveform_from_file_model)
+        self.ni_daq_mx_model = Ni6216DaqMx(heart_beat_model=self.heart_beat_model,
+                                           abp_waveform_file_model=self.abp_waveform_from_file_model)
 
         self.ni_6216_viewmodel = viewmodel.NI6216ViewModel(self.ni_daq_mx_model)
 
@@ -140,9 +141,11 @@ class MainWindow(QMainWindow):
 
     def initialize_views(self):
         # HEART BEAT VIEW
+
         heart_beat_waveform_page_viewmodel = viewmodel.HeartBeatWaveformPageViewModel(self.heart_beat_model)
         load_from_file_page_viewmodel = viewmodel.HeartBeatLoadWaveformFromFilePageViewModel(self.abp_waveform_from_file_model)
         heart_beat_view = view.HeartBeatView(heart_beat_waveform_page_viewmodel, load_from_file_page_viewmodel)
+
         self.view_lookup[ViewID.HEARTBEAT] = heart_beat_view
         self.stacked_widget.addWidget(heart_beat_view)
 
